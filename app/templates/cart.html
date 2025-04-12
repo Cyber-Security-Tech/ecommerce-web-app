@@ -34,9 +34,11 @@
     </tbody>
 </table>
 
-<form method="POST" action="{{ url_for('main_bp.checkout') }}">
+<form method="POST" action="{{ url_for('main_bp.checkout') }}" onsubmit="handleCheckoutSubmit(this)">
     {{ form.hidden_tag() }}
-    {{ form.submit(class="btn btn-success") }}
+    <button type="submit" class="btn btn-success" id="checkout-btn">
+        Proceed to Checkout
+    </button>
 </form>
 
 {% else %}

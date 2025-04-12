@@ -69,7 +69,8 @@ def add_to_cart(product_id):
         db.session.add(cart_item)
     db.session.commit()
     flash(f"Added {product.name} to cart.")
-    return redirect(url_for('main_bp.index'))
+    return redirect(url_for('main_bp.product_detail', product_id=product.id))
+
 
 @main_bp.route("/cart", methods=["GET"])
 @login_required

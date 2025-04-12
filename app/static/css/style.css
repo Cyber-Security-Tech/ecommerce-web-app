@@ -37,3 +37,7 @@ h1, h2, h4 {
 .table th, .table td {
     vertical-align: middle;
 }
+.card-img-top {
+    height: 200px;
+    object-fit: cover;
+}
