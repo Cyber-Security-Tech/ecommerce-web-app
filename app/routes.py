@@ -71,7 +71,6 @@ def add_to_cart(product_id):
     flash(f"Added {product.name} to cart.")
     return redirect(url_for('main_bp.product_detail', product_id=product.id))
 
-
 @main_bp.route("/cart", methods=["GET"])
 @login_required
 def cart():
@@ -92,7 +91,6 @@ def remove_from_cart(item_id):
     flash("Item removed.")
     return redirect(url_for("main_bp.cart"))
 
-# ✅ Stripe Checkout Session version
 @main_bp.route("/checkout", methods=["POST"])
 @login_required
 def checkout():
@@ -103,21 +101,20 @@ def checkout():
             flash("Your cart is empty.")
             return redirect(url_for("main_bp.cart"))
 
-        total_amount = int(sum(item.product.price * item.quantity for item in cart_items) * 100)
         stripe.api_key = Config.STRIPE_SECRET_KEY
 
-        try:
-            line_items = [{
-                'price_data': {
-                    'currency': 'usd',
-                    'product_data': {
-                        'name': item.product.name,
-                    },
-                    'unit_amount': int(item.product.price * 100),
+        line_items = [{
+            'price_data': {
+                'currency': 'usd',
+                'product_data': {
+                    'name': item.product.name,
                 },
-                'quantity': item.quantity,
-            } for item in cart_items]
+                'unit_amount': int(item.product.price * 100),
+            },
+            'quantity': item.quantity,
+        } for item in cart_items]
 
+        try:
             session = stripe.checkout.Session.create(
                 payment_method_types=['card'],
                 line_items=line_items,
@@ -125,17 +122,13 @@ def checkout():
                 success_url=url_for('main_bp.checkout_success', _external=True),
                 cancel_url=url_for('main_bp.cart', _external=True),
             )
-
             return redirect(session.url, code=303)
-
-        except Exception as e:
+        except Exception:
             flash("Payment failed.")
             return redirect(url_for("main_bp.cart"))
-    else:
-        flash("Invalid form submission.")
-        return redirect(url_for("main_bp.cart"))
+    flash("Invalid form submission.")
+    return redirect(url_for("main_bp.cart"))
 
-# ✅ Handles Stripe redirect after success
 @main_bp.route("/checkout/success")
 @login_required
 def checkout_success():
@@ -145,7 +138,6 @@ def checkout_success():
     db.session.add(order)
     CartItem.query.filter_by(user_id=current_user.id).delete()
     db.session.commit()
-
     flash("Payment successful! Thank you for your purchase.")
     return redirect(url_for("main_bp.index"))
 
@@ -172,3 +164,38 @@ def admin():
 
     products = Product.query.all()
     return render_template("admin.html", form=form, products=products)
+
+@main_bp.route("/admin/edit/<int:product_id>", methods=["GET", "POST"])
+@login_required
+def edit_product(product_id):
+    if not current_user.is_admin:
+        flash("Admins only.")
+        return redirect(url_for("main_bp.index"))
+
+    product = Product.query.get_or_404(product_id)
+    form = ProductForm(obj=product)
+
+    if form.validate_on_submit():
+        product.name = form.name.data
+        product.description = form.description.data
+        product.price = form.price.data
+        product.image_url = form.image_url.data
+        product.category = form.category.data
+        db.session.commit()
+        flash("Product updated.")
+        return redirect(url_for("main_bp.admin"))
+
+    return render_template("edit_product.html", form=form, product=product)
+
+@main_bp.route("/admin/delete/<int:product_id>")
+@login_required
+def delete_product(product_id):
+    if not current_user.is_admin:
+        flash("Admins only.")
+        return redirect(url_for("main_bp.index"))
+
+    product = Product.query.get_or_404(product_id)
+    db.session.delete(product)
+    db.session.commit()
+    flash("Product deleted.")
+    return redirect(url_for("main_bp.admin"))
