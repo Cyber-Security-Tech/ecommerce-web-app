@@ -1,9 +1,9 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, render_template, redirect, url_for, flash, request, g
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from . import db, login_manager
-from .models import User, Product, CartItem, Order
-from .forms import RegisterForm, LoginForm, ProductForm, CheckoutForm
+from .models import User, Product, CartItem, Order, OrderItem
+from .forms import RegisterForm, LoginForm, ProductForm, CheckoutForm, QuantityForm
 import stripe
 from config import Config
 
@@ -12,6 +12,14 @@ main_bp = Blueprint('main_bp', __name__)
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
+@main_bp.before_app_request
+def load_cart_count():
+    if current_user.is_authenticated:
+        cart_items = CartItem.query.filter_by(user_id=current_user.id).all()
+        g.cart_count = sum(item.quantity for item in cart_items)
+    else:
+        g.cart_count = 0
 
 @main_bp.route("/")
 def index():
@@ -61,9 +69,17 @@ def product_detail(product_id):
 @login_required
 def add_to_cart(product_id):
     product = Product.query.get_or_404(product_id)
+    if product.stock <= 0:
+        flash("This product is out of stock.")
+        return redirect(url_for("main_bp.product_detail", product_id=product.id))
+
     cart_item = CartItem.query.filter_by(user_id=current_user.id, product_id=product.id).first()
     if cart_item:
-        cart_item.quantity += 1
+        if cart_item.quantity < product.stock:
+            cart_item.quantity += 1
+        else:
+            flash("Reached available stock limit.")
+            return redirect(url_for("main_bp.cart"))
     else:
         cart_item = CartItem(user_id=current_user.id, product_id=product.id, quantity=1)
         db.session.add(cart_item)
@@ -71,13 +87,33 @@ def add_to_cart(product_id):
     flash(f"Added {product.name} to cart.")
     return redirect(url_for('main_bp.product_detail', product_id=product.id))
 
-@main_bp.route("/cart", methods=["GET"])
+@main_bp.route("/cart", methods=["GET", "POST"])
 @login_required
 def cart():
     cart_items = CartItem.query.filter_by(user_id=current_user.id).all()
     total = sum(item.product.price * item.quantity for item in cart_items)
     form = CheckoutForm()
-    return render_template("cart.html", cart_items=cart_items, total=total, form=form)
+    quantity_forms = {item.id: QuantityForm(obj=item) for item in cart_items}
+    return render_template("cart.html", cart_items=cart_items, total=total, form=form, quantity_forms=quantity_forms)
+
+@main_bp.route("/update_cart/<int:item_id>", methods=["POST"])
+@login_required
+def update_cart(item_id):
+    item = CartItem.query.get_or_404(item_id)
+    form = QuantityForm()
+    if item.user_id != current_user.id:
+        flash("Unauthorized.")
+        return redirect(url_for("main_bp.cart"))
+
+    if form.validate_on_submit():
+        quantity = form.quantity.data
+        if quantity > item.product.stock:
+            flash("Not enough stock available.")
+        else:
+            item.quantity = quantity
+            db.session.commit()
+            flash("Quantity updated.")
+    return redirect(url_for("main_bp.cart"))
 
 @main_bp.route("/remove_from_cart/<int:item_id>")
 @login_required
@@ -100,6 +136,11 @@ def checkout():
         if not cart_items:
             flash("Your cart is empty.")
             return redirect(url_for("main_bp.cart"))
+
+        for item in cart_items:
+            if item.quantity > item.product.stock:
+                flash(f"Not enough stock for {item.product.name}.")
+                return redirect(url_for("main_bp.cart"))
 
         stripe.api_key = Config.STRIPE_SECRET_KEY
 
@@ -126,6 +167,7 @@ def checkout():
         except Exception:
             flash("Payment failed.")
             return redirect(url_for("main_bp.cart"))
+
     flash("Invalid form submission.")
     return redirect(url_for("main_bp.cart"))
 
@@ -134,8 +176,16 @@ def checkout():
 def checkout_success():
     cart_items = CartItem.query.filter_by(user_id=current_user.id).all()
     total_amount = sum(item.product.price * item.quantity for item in cart_items)
+
     order = Order(user_id=current_user.id, total_amount=total_amount)
     db.session.add(order)
+    db.session.commit()
+
+    for item in cart_items:
+        order_item = OrderItem(order_id=order.id, product_id=item.product.id, quantity=item.quantity)
+        item.product.stock -= item.quantity
+        db.session.add(order_item)
+
     CartItem.query.filter_by(user_id=current_user.id).delete()
     db.session.commit()
     flash("Payment successful! Thank you for your purchase.")
@@ -150,17 +200,22 @@ def admin():
 
     form = ProductForm()
     if form.validate_on_submit():
-        new_product = Product(
-            name=form.name.data,
-            description=form.description.data,
-            price=form.price.data,
-            image_url=form.image_url.data,
-            category=form.category.data
-        )
-        db.session.add(new_product)
-        db.session.commit()
-        flash("Product added.")
-        return redirect(url_for("main_bp.admin"))
+        try:
+            new_product = Product(
+                name=form.name.data,
+                description=form.description.data,
+                price=form.price.data,
+                image_url=form.image_url.data,
+                category=form.category.data,
+                stock=form.stock.data
+            )
+            db.session.add(new_product)
+            db.session.commit()
+            flash("Product added.")
+            return redirect(url_for("main_bp.admin"))
+        except Exception as e:
+            db.session.rollback()
+            flash("Error saving product. Please check your input.")
 
     products = Product.query.all()
     return render_template("admin.html", form=form, products=products)
@@ -181,6 +236,7 @@ def edit_product(product_id):
         product.price = form.price.data
         product.image_url = form.image_url.data
         product.category = form.category.data
+        product.stock = form.stock.data
         db.session.commit()
         flash("Product updated.")
         return redirect(url_for("main_bp.admin"))
@@ -199,3 +255,9 @@ def delete_product(product_id):
     db.session.commit()
     flash("Product deleted.")
     return redirect(url_for("main_bp.admin"))
+
+@main_bp.route("/orders")
+@login_required
+def orders():
+    user_orders = Order.query.filter_by(user_id=current_user.id).order_by(Order.timestamp.desc()).all()
+    return render_template("orders.html", orders=user_orders)

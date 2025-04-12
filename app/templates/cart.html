@@ -20,7 +20,15 @@
             {% for item in cart_items %}
             <tr>
                 <td class="fw-semibold">{{ item.product.name }}</td>
-                <td>{{ item.quantity }}</td>
+
+                <td>
+                    <form action="{{ url_for('main_bp.update_cart', item_id=item.id) }}" method="POST" class="d-flex justify-content-center align-items-center gap-2">
+                        {{ quantity_forms[item.id].hidden_tag() }}
+                        {{ quantity_forms[item.id].quantity(class="form-control form-control-sm", min=1, max=item.product.stock or 1, style="width: 80px;") }}
+                        {{ quantity_forms[item.id].submit(class="btn btn-sm btn-outline-primary") }}
+                    </form>
+                </td>
+
                 <td>${{ "%.2f"|format(item.product.price) }}</td>
                 <td>${{ "%.2f"|format(item.product.price * item.quantity) }}</td>
                 <td>
