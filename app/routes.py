@@ -23,8 +23,31 @@ def load_cart_count():
 
 @main_bp.route("/")
 def index():
-    products = Product.query.all()
-    return render_template("index.html", products=products)
+    search_query = request.args.get("search", "")
+    selected_category = request.args.get("category", "")
+    sort_option = request.args.get("sort", "")
+
+    products_query = Product.query
+
+    if search_query:
+        products_query = products_query.filter(Product.name.ilike(f"%{search_query}%"))
+
+    if selected_category:
+        products_query = products_query.filter(Product.category.ilike(f"%{selected_category}%"))
+
+    if sort_option == "price_asc":
+        products_query = products_query.order_by(Product.price.asc())
+    elif sort_option == "price_desc":
+        products_query = products_query.order_by(Product.price.desc())
+    elif sort_option == "name_asc":
+        products_query = products_query.order_by(Product.name.asc())
+    elif sort_option == "name_desc":
+        products_query = products_query.order_by(Product.name.desc())
+
+    products = products_query.all()
+    categories = [c[0] for c in db.session.query(Product.category).distinct() if c[0]]
+
+    return render_template("index.html", products=products, categories=categories, search_query=search_query, selected_category=selected_category, sort_option=sort_option)
 
 @main_bp.route("/register", methods=["GET", "POST"])
 def register():
@@ -147,9 +170,7 @@ def checkout():
         line_items = [{
             'price_data': {
                 'currency': 'usd',
-                'product_data': {
-                    'name': item.product.name,
-                },
+                'product_data': {'name': item.product.name},
                 'unit_amount': int(item.product.price * 100),
             },
             'quantity': item.quantity,
@@ -200,22 +221,18 @@ def admin():
 
     form = ProductForm()
     if form.validate_on_submit():
-        try:
-            new_product = Product(
-                name=form.name.data,
-                description=form.description.data,
-                price=form.price.data,
-                image_url=form.image_url.data,
-                category=form.category.data,
-                stock=form.stock.data
-            )
-            db.session.add(new_product)
-            db.session.commit()
-            flash("Product added.")
-            return redirect(url_for("main_bp.admin"))
-        except Exception as e:
-            db.session.rollback()
-            flash("Error saving product. Please check your input.")
+        new_product = Product(
+            name=form.name.data,
+            description=form.description.data,
+            price=form.price.data,
+            image_url=form.image_url.data,
+            category=form.category.data,
+            stock=form.stock.data
+        )
+        db.session.add(new_product)
+        db.session.commit()
+        flash("Product added.")
+        return redirect(url_for("main_bp.admin"))
 
     products = Product.query.all()
     return render_template("admin.html", form=form, products=products)

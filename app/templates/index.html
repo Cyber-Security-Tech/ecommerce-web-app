@@ -1,37 +1,66 @@
 {% extends "base.html" %}
-{% block title %}Home - ShopNow{% endblock %}
+{% block title %}ShopNow - Home{% endblock %}
 
 {% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">Browse Products</h2>
+</div>
 
-<!-- Hero Section -->
-<section class="py-5 text-center bg-white shadow-sm rounded mb-5">
-    <h1 class="display-5 fw-bold">Shop smart. Stay stylish.</h1>
-    <p class="lead text-muted">Discover high-quality essentials for everyday living.</p>
-</section>
+<!-- Search, Filter, Sort -->
+<form method="GET" class="row g-3 align-items-center mb-4">
+    <div class="col-md-4">
+        <input type="text" name="search" class="form-control" placeholder="Search by product name..." value="{{ search_query }}">
+    </div>
+    <div class="col-md-3">
+        <select name="category" class="form-select">
+            <option value="">All Categories</option>
+            {% for category in categories %}
+            <option value="{{ category }}" {% if selected_category == category %}selected{% endif %}>{{ category|capitalize }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-3">
+        <select name="sort" class="form-select">
+            <option value="">Sort By</option>
+            <option value="name_asc" {% if sort_option == 'name_asc' %}selected{% endif %}>Name (A-Z)</option>
+            <option value="name_desc" {% if sort_option == 'name_desc' %}selected{% endif %}>Name (Z-A)</option>
+            <option value="price_asc" {% if sort_option == 'price_asc' %}selected{% endif %}>Price (Low to High)</option>
+            <option value="price_desc" {% if sort_option == 'price_desc' %}selected{% endif %}>Price (High to Low)</option>
+        </select>
+    </div>
+    <div class="col-md-2">
+        <button type="submit" class="btn btn-dark w-100">Apply</button>
+    </div>
+</form>
 
 <!-- Product Grid -->
-{% if products %}
-<div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4">
+<div class="row">
     {% for product in products %}
-    <div class="col">
-        <div class="card h-100 shadow-sm border-0">
-            <img src="{{ product.image_url or 'https://via.placeholder.com/400x300?text=No+Image' }}"
-                 class="card-img-top"
-                 alt="{{ product.name }}">
+    <div class="col-md-4 mb-4">
+        <div class="card h-100 shadow-sm">
+            {% if product.image_url %}
+            <img src="{{ product.image_url }}" class="card-img-top" alt="{{ product.name }}" style="height: 250px; object-fit: cover;">
+            {% else %}
+            <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 250px;">
+                <span class="text-muted">No Image</span>
+            </div>
+            {% endif %}
             <div class="card-body d-flex flex-column">
-                <h5 class="card-title fw-semibold">{{ product.name }}</h5>
-                <p class="text-muted mb-1">${{ "%.2f"|format(product.price) }}</p>
-                <a href="{{ url_for('main_bp.product_detail', product_id=product.id) }}"
-                   class="btn btn-outline-primary mt-auto">View</a>
+                <h5 class="card-title mb-1">{{ product.name }}</h5>
+                <p class="card-text text-muted mb-2">${{ "%.2f"|format(product.price) }}</p>
+                {% if product.category %}
+                <span class="badge bg-secondary mb-2">{{ product.category }}</span>
+                {% endif %}
+                <a href="{{ url_for('main_bp.product_detail', product_id=product.id) }}" class="btn btn-outline-dark mt-auto">View Details</a>
             </div>
         </div>
     </div>
     {% endfor %}
 </div>
-{% else %}
-<div class="text-center text-muted py-5">
-    <p class="fs-5">No products available yet. Check back soon!</p>
+
+{% if not products %}
+<div class="alert alert-info mt-4" role="alert">
+    No products found. Try adjusting your filters or search term.
 </div>
 {% endif %}
-
 {% endblock %}
