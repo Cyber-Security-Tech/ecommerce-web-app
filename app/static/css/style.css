@@ -1,43 +1,65 @@
+/* General */
 body {
-    background-color: #f9f9f9;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa;
+    color: #212529;
+    line-height: 1.6;
 }
 
-h1, h2, h4 {
-    color: #333;
+/* Card Styling */
+.card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border-radius: 1rem;
 }
 
-.navbar-brand {
-    font-weight: bold;
-    font-size: 1.4rem;
+.card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 20px rgba(0, 0, 0, 0.08);
 }
 
 .card-img-top {
-    height: 250px;
+    height: 220px;
     object-fit: cover;
+    border-top-left-radius: 1rem;
+    border-top-right-radius: 1rem;
 }
 
-.card-title {
-    font-size: 1.2rem;
-    font-weight: 600;
-}
-
-.card-text {
-    font-size: 0.95rem;
-}
-
-.alert {
-    font-size: 0.95rem;
-}
-
+/* Buttons */
 .btn {
-    font-size: 0.9rem;
+    transition: all 0.2s ease-in-out;
+    font-weight: 500;
 }
 
-.table th, .table td {
-    vertical-align: middle;
+.btn:hover {
+    transform: scale(1.02);
 }
-.card-img-top {
-    height: 200px;
-    object-fit: cover;
+
+/* Badge */
+.badge {
+    font-size: 0.75rem;
+    padding: 0.4em 0.6em;
+}
+
+/* Footer */
+footer {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Flash Message */
+.alert {
+    border-radius: 0.75rem;
+}
+
+/* Navbar cart badge */
+.navbar .badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    font-size: 0.7rem;
+}
+
+/* Hero */
+section.hero {
+    background-color: white;
+    border-radius: 1rem;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.05);
 }

@@ -4,19 +4,19 @@
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-8">
-        <div class="card shadow-sm mb-4">
+        <div class="card shadow-sm border-0 rounded">
             <img src="{{ product.image_url or 'https://via.placeholder.com/800x400?text=No+Image' }}"
                  class="card-img-top" alt="{{ product.name }}">
             <div class="card-body">
-                <h3 class="card-title">{{ product.name }}</h3>
-                <h5 class="text-success mb-3">${{ "%.2f"|format(product.price) }}</h5>
+                <h3 class="card-title fw-semibold">{{ product.name }}</h3>
+                <h5 class="text-success fw-bold mb-3">${{ "%.2f"|format(product.price) }}</h5>
                 <p class="card-text">{{ product.description }}</p>
 
                 {% if current_user.is_authenticated %}
                 <a href="{{ url_for('main_bp.add_to_cart', product_id=product.id) }}"
-                   class="btn btn-primary">Add to Cart</a>
+                   class="btn btn-primary mt-3">Add to Cart</a>
                 {% else %}
-                <a href="{{ url_for('main_bp.login') }}" class="btn btn-outline-primary">
+                <a href="{{ url_for('main_bp.login') }}" class="btn btn-outline-primary mt-3">
                     Log in to purchase
                 </a>
                 {% endif %}
