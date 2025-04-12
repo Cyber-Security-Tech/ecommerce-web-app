@@ -1,0 +1,39 @@
+body {
+    background-color: #f9f9f9;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+h1, h2, h4 {
+    color: #333;
+}
+
+.navbar-brand {
+    font-weight: bold;
+    font-size: 1.4rem;
+}
+
+.card-img-top {
+    height: 250px;
+    object-fit: cover;
+}
+
+.card-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.card-text {
+    font-size: 0.95rem;
+}
+
+.alert {
+    font-size: 0.95rem;
+}
+
+.btn {
+    font-size: 0.9rem;
+}
+
+.table th, .table td {
+    vertical-align: middle;
+}

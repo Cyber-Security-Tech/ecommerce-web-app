@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{{ product.name }} - ShopNow{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6">
+        {% if product.image_url %}
+        <img src="{{ product.image_url }}" alt="{{ product.name }}" class="img-fluid rounded shadow">
+        {% endif %}
+    </div>
+    <div class="col-md-6">
+        <h2>{{ product.name }}</h2>
+        <p class="text-muted">{{ product.category }}</p>
+        <h4 class="text-success">${{ "%.2f"|format(product.price) }}</h4>
+        <p>{{ product.description }}</p>
+
+        {% if current_user.is_authenticated %}
+        <a href="{{ url_for('main_bp.add_to_cart', product_id=product.id) }}" class="btn btn-primary">Add to Cart</a>
+        {% else %}
+        <a href="{{ url_for('main_bp.login') }}" class="btn btn-outline-secondary">Login to Add to Cart</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

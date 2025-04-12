@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Home - ShopNow{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Browse Products</h1>
+
+<div class="row row-cols-1 row-cols-md-3 g-4">
+    {% for product in products %}
+    <div class="col">
+        <div class="card h-100 shadow-sm">
+            {% if product.image_url %}
+            <img src="{{ product.image_url }}" class="card-img-top" alt="{{ product.name }}">
+            {% endif %}
+            <div class="card-body">
+                <h5 class="card-title">{{ product.name }}</h5>
+                <p class="card-text">${{ "%.2f"|format(product.price) }}</p>
+                <p class="card-text text-muted">{{ product.category }}</p>
+                <a href="{{ url_for('main_bp.product_detail', product_id=product.id) }}" class="btn btn-outline-primary">View</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
