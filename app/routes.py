@@ -1,11 +1,24 @@
+"""
+routes.py
+
+Main routing module for the Flask eCommerce app.
+Handles user authentication, product display, cart operations, wishlist,
+checkout flow, review system, order history, admin controls, and profile updates.
+"""
+
 from flask import Blueprint, render_template, redirect, url_for, flash, request, g
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from . import db, login_manager
-from .models import User, Product, CartItem, Order, OrderItem
-from .forms import RegisterForm, LoginForm, ProductForm, CheckoutForm, QuantityForm
+from .models import User, Product, CartItem, Order, OrderItem, WishlistItem, Review
+from .forms import (
+    RegisterForm, LoginForm, ProductForm,
+    CheckoutForm, QuantityForm, ProfileForm,
+    ReviewForm
+)
 import stripe
 from config import Config
+from sqlalchemy import or_
 
 main_bp = Blueprint('main_bp', __name__)
 
@@ -21,77 +34,78 @@ def load_cart_count():
     else:
         g.cart_count = 0
 
+# -------------------------------
+# Homepage & Product Browsing
+# -------------------------------
+
 @main_bp.route("/")
 def index():
     search_query = request.args.get("search", "")
     selected_category = request.args.get("category", "")
     sort_option = request.args.get("sort", "")
 
-    products_query = Product.query
+    products = Product.query
 
     if search_query:
-        products_query = products_query.filter(Product.name.ilike(f"%{search_query}%"))
+        products = products.filter(
+            or_(
+                Product.name.ilike(f"%{search_query}%"),
+                Product.description.ilike(f"%{search_query}%")
+            )
+        )
 
     if selected_category:
-        products_query = products_query.filter(Product.category.ilike(f"%{selected_category}%"))
+        products = products.filter(Product.category.ilike(f"%{selected_category}%"))
 
-    if sort_option == "price_asc":
-        products_query = products_query.order_by(Product.price.asc())
-    elif sort_option == "price_desc":
-        products_query = products_query.order_by(Product.price.desc())
-    elif sort_option == "name_asc":
-        products_query = products_query.order_by(Product.name.asc())
+    if sort_option == "name_asc":
+        products = products.order_by(Product.name.asc())
     elif sort_option == "name_desc":
-        products_query = products_query.order_by(Product.name.desc())
+        products = products.order_by(Product.name.desc())
+    elif sort_option == "price_asc":
+        products = products.order_by(Product.price.asc())
+    elif sort_option == "price_desc":
+        products = products.order_by(Product.price.desc())
 
-    products = products_query.all()
+    products = products.all()
     categories = [c[0] for c in db.session.query(Product.category).distinct() if c[0]]
 
-    return render_template("index.html", products=products, categories=categories, search_query=search_query, selected_category=selected_category, sort_option=sort_option)
+    return render_template("index.html", products=products, categories=categories,
+                           search_query=search_query, selected_category=selected_category,
+                           sort_option=sort_option)
+# -------------------------------
+# Product Detail & Reviews
+# -------------------------------
 
-@main_bp.route("/register", methods=["GET", "POST"])
-def register():
-    form = RegisterForm()
-    if form.validate_on_submit():
-        if User.query.filter_by(email=form.email.data).first():
-            flash("Email already registered.")
-            return redirect(url_for('main_bp.register'))
-        hashed_password = generate_password_hash(form.password.data)
-        user = User(email=form.email.data, password=hashed_password)
-        db.session.add(user)
-        db.session.commit()
-        flash("Registration successful. Please log in.")
-        return redirect(url_for('main_bp.login'))
-    return render_template("register.html", form=form)
-
-@main_bp.route("/login", methods=["GET", "POST"])
-def login():
-    form = LoginForm()
-    if form.validate_on_submit():
-        user = User.query.filter_by(email=form.email.data).first()
-        if user and check_password_hash(user.password, form.password.data):
-            login_user(user, remember=form.remember.data)
-            flash("Logged in successfully.")
-            return redirect(url_for('main_bp.index'))
-        flash("Invalid email or password.")
-    return render_template("login.html", form=form)
-
-@main_bp.route("/logout")
-@login_required
-def logout():
-    logout_user()
-    flash("You have been logged out.")
-    return redirect(url_for('main_bp.index'))
-
-@main_bp.route("/product/<int:product_id>")
+@main_bp.route("/product/<int:product_id>", methods=["GET", "POST"])
 def product_detail(product_id):
+    """
+    Show details of a single product and handle review submissions.
+    """
     product = Product.query.get_or_404(product_id)
-    return render_template("product.html", product=product)
+    review_form = ReviewForm()
+
+    if current_user.is_authenticated and review_form.validate_on_submit():
+        new_review = Review(
+            user_id=current_user.id,
+            product_id=product.id,
+            rating=review_form.rating.data,
+            comment=review_form.content.data
+        )
+        db.session.add(new_review)
+        db.session.commit()
+        flash("Review submitted!")
+        return redirect(url_for("main_bp.product_detail", product_id=product.id))
+
+    return render_template("product.html", product=product, review_form=review_form)
+# -------------------------------
+# Cart Management
+# -------------------------------
 
 @main_bp.route("/add_to_cart/<int:product_id>")
 @login_required
 def add_to_cart(product_id):
     product = Product.query.get_or_404(product_id)
+
     if product.stock <= 0:
         flash("This product is out of stock.")
         return redirect(url_for("main_bp.product_detail", product_id=product.id))
@@ -106,9 +120,11 @@ def add_to_cart(product_id):
     else:
         cart_item = CartItem(user_id=current_user.id, product_id=product.id, quantity=1)
         db.session.add(cart_item)
+
     db.session.commit()
     flash(f"Added {product.name} to cart.")
     return redirect(url_for('main_bp.product_detail', product_id=product.id))
+
 
 @main_bp.route("/cart", methods=["GET", "POST"])
 @login_required
@@ -117,13 +133,17 @@ def cart():
     total = sum(item.product.price * item.quantity for item in cart_items)
     form = CheckoutForm()
     quantity_forms = {item.id: QuantityForm(obj=item) for item in cart_items}
-    return render_template("cart.html", cart_items=cart_items, total=total, form=form, quantity_forms=quantity_forms)
+
+    return render_template("cart.html", cart_items=cart_items, total=total,
+                           form=form, quantity_forms=quantity_forms)
+
 
 @main_bp.route("/update_cart/<int:item_id>", methods=["POST"])
 @login_required
 def update_cart(item_id):
     item = CartItem.query.get_or_404(item_id)
     form = QuantityForm()
+
     if item.user_id != current_user.id:
         flash("Unauthorized.")
         return redirect(url_for("main_bp.cart"))
@@ -136,7 +156,9 @@ def update_cart(item_id):
             item.quantity = quantity
             db.session.commit()
             flash("Quantity updated.")
+
     return redirect(url_for("main_bp.cart"))
+
 
 @main_bp.route("/remove_from_cart/<int:item_id>")
 @login_required
@@ -145,17 +167,23 @@ def remove_from_cart(item_id):
     if item.user_id != current_user.id:
         flash("Unauthorized.")
         return redirect(url_for("main_bp.cart"))
+
     db.session.delete(item)
     db.session.commit()
     flash("Item removed.")
     return redirect(url_for("main_bp.cart"))
+# -------------------------------
+# Checkout & Stripe Integration
+# -------------------------------
 
 @main_bp.route("/checkout", methods=["POST"])
 @login_required
 def checkout():
     form = CheckoutForm()
+
     if form.validate_on_submit():
         cart_items = CartItem.query.filter_by(user_id=current_user.id).all()
+
         if not cart_items:
             flash("Your cart is empty.")
             return redirect(url_for("main_bp.cart"))
@@ -186,11 +214,12 @@ def checkout():
             )
             return redirect(session.url, code=303)
         except Exception:
-            flash("Payment failed.")
+            flash("Payment failed. Please try again.")
             return redirect(url_for("main_bp.cart"))
 
-    flash("Invalid form submission.")
+    flash("Invalid checkout form.")
     return redirect(url_for("main_bp.cart"))
+
 
 @main_bp.route("/checkout/success")
 @login_required
@@ -209,72 +238,113 @@ def checkout_success():
 
     CartItem.query.filter_by(user_id=current_user.id).delete()
     db.session.commit()
+
     flash("Payment successful! Thank you for your purchase.")
     return redirect(url_for("main_bp.index"))
-
-@main_bp.route("/admin", methods=["GET", "POST"])
-@login_required
-def admin():
-    if not current_user.is_admin:
-        flash("Admins only.")
-        return redirect(url_for("main_bp.index"))
-
-    form = ProductForm()
-    if form.validate_on_submit():
-        new_product = Product(
-            name=form.name.data,
-            description=form.description.data,
-            price=form.price.data,
-            image_url=form.image_url.data,
-            category=form.category.data,
-            stock=form.stock.data
-        )
-        db.session.add(new_product)
-        db.session.commit()
-        flash("Product added.")
-        return redirect(url_for("main_bp.admin"))
-
-    products = Product.query.all()
-    return render_template("admin.html", form=form, products=products)
-
-@main_bp.route("/admin/edit/<int:product_id>", methods=["GET", "POST"])
-@login_required
-def edit_product(product_id):
-    if not current_user.is_admin:
-        flash("Admins only.")
-        return redirect(url_for("main_bp.index"))
-
-    product = Product.query.get_or_404(product_id)
-    form = ProductForm(obj=product)
-
-    if form.validate_on_submit():
-        product.name = form.name.data
-        product.description = form.description.data
-        product.price = form.price.data
-        product.image_url = form.image_url.data
-        product.category = form.category.data
-        product.stock = form.stock.data
-        db.session.commit()
-        flash("Product updated.")
-        return redirect(url_for("main_bp.admin"))
-
-    return render_template("edit_product.html", form=form, product=product)
-
-@main_bp.route("/admin/delete/<int:product_id>")
-@login_required
-def delete_product(product_id):
-    if not current_user.is_admin:
-        flash("Admins only.")
-        return redirect(url_for("main_bp.index"))
-
-    product = Product.query.get_or_404(product_id)
-    db.session.delete(product)
-    db.session.commit()
-    flash("Product deleted.")
-    return redirect(url_for("main_bp.admin"))
+# -------------------------------
+# Order History
+# -------------------------------
 
 @main_bp.route("/orders")
 @login_required
 def orders():
     user_orders = Order.query.filter_by(user_id=current_user.id).order_by(Order.timestamp.desc()).all()
     return render_template("orders.html", orders=user_orders)
+
+
+# -------------------------------
+# User Profile Page
+# -------------------------------
+
+@main_bp.route("/profile", methods=["GET", "POST"])
+@login_required
+def profile():
+    form = ProfileForm(obj=current_user)
+
+    if form.validate_on_submit():
+        current_user.address = form.address.data
+        current_user.preferences = form.preferences.data
+        db.session.commit()
+        flash("Profile updated successfully.")
+        return redirect(url_for("main_bp.profile"))
+
+    return render_template("profile.html", form=form)
+# -------------------------------
+# Wishlist
+# -------------------------------
+
+@main_bp.route("/wishlist")
+@login_required
+def wishlist():
+    wishlist = WishlistItem.query.filter_by(user_id=current_user.id).all()
+    return render_template("wishlist.html", wishlist=wishlist)
+
+
+@main_bp.route("/add_to_wishlist/<int:product_id>")
+@login_required
+def add_to_wishlist(product_id):
+    product = Product.query.get_or_404(product_id)
+    existing = WishlistItem.query.filter_by(user_id=current_user.id, product_id=product.id).first()
+    if existing:
+        flash("Product already in your wishlist.")
+    else:
+        wishlist_item = WishlistItem(user_id=current_user.id, product_id=product.id)
+        db.session.add(wishlist_item)
+        db.session.commit()
+        flash("Product added to your wishlist.")
+    return redirect(url_for("main_bp.product_detail", product_id=product.id))
+
+
+@main_bp.route("/remove_from_wishlist/<int:product_id>")
+@login_required
+def remove_from_wishlist(product_id):
+    item = WishlistItem.query.filter_by(user_id=current_user.id, product_id=product_id).first()
+    if item:
+        db.session.delete(item)
+        db.session.commit()
+        flash("Removed from wishlist.")
+    else:
+        flash("Item not found in wishlist.")
+    return redirect(request.referrer or url_for("main_bp.index"))
+# -------------------------------
+# User Authentication
+# -------------------------------
+
+@main_bp.route("/login", methods=["GET", "POST"])
+def login():
+    form = LoginForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(email=form.email.data).first()
+        if user and check_password_hash(user.password, form.password.data):
+            login_user(user, remember=form.remember.data)
+            flash("Logged in successfully.")
+            return redirect(url_for("main_bp.index"))
+        flash("Invalid email or password.")
+    return render_template("login.html", form=form)
+
+
+@main_bp.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    flash("You have been logged out.")
+    return redirect(url_for("main_bp.index"))
+
+
+@main_bp.route("/register", methods=["GET", "POST"])
+def register():
+    form = RegisterForm()
+    if form.validate_on_submit():
+        existing_user = User.query.filter_by(email=form.email.data).first()
+        if existing_user:
+            flash("Email already registered.")
+            return redirect(url_for("main_bp.register"))
+
+        hashed_password = generate_password_hash(form.password.data)
+        user = User(email=form.email.data, password=hashed_password)
+        db.session.add(user)
+        db.session.commit()
+        flash("Registration successful. Please log in.")
+        return redirect(url_for("main_bp.login"))
+
+    return render_template("register.html", form=form)

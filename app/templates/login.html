@@ -4,18 +4,34 @@
 {% block content %}
 <h2 class="mb-4">Login to Your Account</h2>
 
-<form method="POST">
+<form method="POST" novalidate aria-label="Login form">
     {{ form.hidden_tag() }}
 
+    <!-- Email -->
     <div class="mb-3">
-        {{ form.email.label }} {{ form.email(class="form-control") }}
+        {{ form.email.label(class="form-label") }}
+        {{ form.email(class="form-control", autofocus=True) }}
+        {% for error in form.email.errors %}
+            <div class="text-danger small mt-1">{{ error }}</div>
+        {% endfor %}
     </div>
+
+    <!-- Password -->
     <div class="mb-3">
-        {{ form.password.label }} {{ form.password(class="form-control") }}
+        {{ form.password.label(class="form-label") }}
+        {{ form.password(class="form-control") }}
+        {% for error in form.password.errors %}
+            <div class="text-danger small mt-1">{{ error }}</div>
+        {% endfor %}
     </div>
+
+    <!-- Remember Me -->
     <div class="form-check mb-3">
-        {{ form.remember(class="form-check-input") }} {{ form.remember.label(class="form-check-label") }}
+        {{ form.remember(class="form-check-input") }}
+        {{ form.remember.label(class="form-check-label") }}
     </div>
+
+    <!-- Submit -->
     <div class="mb-3">
         {{ form.submit(class="btn btn-success") }}
     </div>

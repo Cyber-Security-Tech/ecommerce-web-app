@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}My Profile - ShopNow{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">My Profile</h2>
+
+<form method="POST" class="card shadow-sm p-4" novalidate aria-label="Edit profile form">
+    {{ form.hidden_tag() }}
+
+    <!-- Address -->
+    <div class="mb-3">
+        {{ form.address.label(class="form-label") }}
+        {{ form.address(class="form-control", placeholder="Enter your full shipping address") }}
+        {% for error in form.address.errors %}
+            <div class="text-danger small mt-1">{{ error }}</div>
+        {% endfor %}
+    </div>
+
+    <!-- Preferences -->
+    <div class="mb-3">
+        {{ form.preferences.label(class="form-label") }}
+        {{ form.preferences(class="form-control", rows="4", placeholder="Any shopping preferences or notes...") }}
+        {% for error in form.preferences.errors %}
+            <div class="text-danger small mt-1">{{ error }}</div>
+        {% endfor %}
+    </div>
+
+    <!-- Submit -->
+    <button type="submit" class="btn btn-dark">Save Changes</button>
+</form>
+{% endblock %}

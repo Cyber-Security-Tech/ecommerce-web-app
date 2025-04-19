@@ -13,30 +13,53 @@
                 <th>Quantity</th>
                 <th>Unit Price</th>
                 <th>Subtotal</th>
-                <th></th>
+                <th>Remove</th>
             </tr>
         </thead>
         <tbody>
             {% for item in cart_items %}
             <tr>
+                <!-- Product Name -->
                 <td class="fw-semibold">{{ item.product.name }}</td>
 
+                <!-- Quantity Form -->
                 <td>
-                    <form action="{{ url_for('main_bp.update_cart', item_id=item.id) }}" method="POST" class="d-flex justify-content-center align-items-center gap-2">
+                    <form action="{{ url_for('main_bp.update_cart', item_id=item.id) }}"
+                          method="POST"
+                          class="d-flex justify-content-center align-items-center gap-2"
+                          aria-label="Update quantity for {{ item.product.name }}">
                         {{ quantity_forms[item.id].hidden_tag() }}
-                        {{ quantity_forms[item.id].quantity(class="form-control form-control-sm", min=1, max=item.product.stock or 1, style="width: 80px;") }}
+                        {{ quantity_forms[item.id].quantity(
+                            class="form-control form-control-sm",
+                            min=1,
+                            max=item.product.stock or 1,
+                            style="width: 80px;"
+                        ) }}
                         {{ quantity_forms[item.id].submit(class="btn btn-sm btn-outline-primary") }}
+
+                        {% for error in quantity_forms[item.id].quantity.errors %}
+                            <div class="text-danger small mt-1">{{ error }}</div>
+                        {% endfor %}
                     </form>
                 </td>
 
+                <!-- Price & Subtotal -->
                 <td>${{ "%.2f"|format(item.product.price) }}</td>
                 <td>${{ "%.2f"|format(item.product.price * item.quantity) }}</td>
+
+                <!-- Remove Item -->
                 <td>
                     <a href="{{ url_for('main_bp.remove_from_cart', item_id=item.id) }}"
-                       class="btn btn-sm btn-outline-danger">Remove</a>
+                       class="btn btn-sm btn-outline-danger"
+                       aria-label="Remove {{ item.product.name }} from cart"
+                       onclick="return confirm('Remove this item from your cart?');">
+                        Remove
+                    </a>
                 </td>
             </tr>
             {% endfor %}
+
+            <!-- Total Row -->
             <tr>
                 <td colspan="3" class="text-end fw-bold">Total:</td>
                 <td colspan="2" class="fw-bold text-success fs-5">${{ "%.2f"|format(total) }}</td>
@@ -45,7 +68,11 @@
     </table>
 </div>
 
-<form method="POST" action="{{ url_for('main_bp.checkout') }}" onsubmit="handleCheckoutSubmit(this)">
+<!-- Checkout Button -->
+<form method="POST"
+      action="{{ url_for('main_bp.checkout') }}"
+      onsubmit="this.querySelector('button').disabled = true;"
+      aria-label="Proceed to checkout">
     {{ form.hidden_tag() }}
     <button type="submit" class="btn btn-success btn-lg mt-3" id="checkout-btn">
         Proceed to Checkout
@@ -53,6 +80,7 @@
 </form>
 
 {% else %}
+<!-- Empty Cart State -->
 <div class="text-center text-muted py-5">
     <p class="fs-5">Your cart is empty.</p>
     <a href="{{ url_for('main_bp.index') }}" class="btn btn-outline-primary">Browse Products</a>

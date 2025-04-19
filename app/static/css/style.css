@@ -1,11 +1,16 @@
-/* General */
+/* ========================
+   General
+======================== */
 body {
     background-color: #f8f9fa;
     color: #212529;
     line-height: 1.6;
+    font-family: 'Poppins', sans-serif;
 }
 
-/* Card Styling */
+/* ========================
+   Cards
+======================== */
 .card {
     transition: transform 0.2s ease, box-shadow 0.2s ease;
     border-radius: 1rem;
@@ -23,7 +28,9 @@ body {
     border-top-right-radius: 1rem;
 }
 
-/* Buttons */
+/* ========================
+   Buttons
+======================== */
 .btn {
     transition: all 0.2s ease-in-out;
     font-weight: 500;
@@ -33,23 +40,23 @@ body {
     transform: scale(1.02);
 }
 
-/* Badge */
+/* ========================
+   Form Elements
+======================== */
+input.form-control,
+select.form-select,
+textarea.form-control {
+    border-radius: 0.5rem;
+}
+
+/* ========================
+   Badges
+======================== */
 .badge {
     font-size: 0.75rem;
     padding: 0.4em 0.6em;
 }
 
-/* Footer */
-footer {
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-/* Flash Message */
-.alert {
-    border-radius: 0.75rem;
-}
-
-/* Navbar cart badge */
 .navbar .badge {
     position: absolute;
     top: 0;
@@ -57,9 +64,27 @@ footer {
     font-size: 0.7rem;
 }
 
-/* Hero */
+/* ========================
+   Alerts / Flash Messages
+======================== */
+.alert {
+    border-radius: 0.75rem;
+    margin-top: 1rem;
+}
+
+/* ========================
+   Footer
+======================== */
+footer {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ========================
+   Hero Section (if used)
+======================== */
 section.hero {
     background-color: white;
     border-radius: 1rem;
     box-shadow: 0 6px 14px rgba(0, 0, 0, 0.05);
+    padding: 2rem;
 }
